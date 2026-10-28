@@ -1,0 +1,1 @@
+# S3-1_sentence_pattern_1
