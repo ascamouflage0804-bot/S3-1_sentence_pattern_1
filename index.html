@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What day is it? 互動練習</title>
+<style>
+:root{--ink:#25324a;--blue:#315a8a;--cream:#fff8e8;--gold:#ffd166;--mint:#dff4e8;--pink:#ffe2e2;--line:#d9e1ec}
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(135deg,#fff8e8,#eaf4ff);font-family:system-ui,-apple-system,"Microsoft JhengHei",sans-serif;color:var(--ink)}
+main{max-width:850px;margin:auto;padding:18px}
+header{background:#fff;border:2px solid var(--line);border-radius:22px;padding:18px;text-align:center;box-shadow:0 5px 18px #24344a12}
+h1{margin:0 0 6px;font-size:clamp(1.5rem,5vw,2.2rem);color:var(--blue)}
+.sub{margin:0;color:#58677d}
+.panel{background:#fff;border:2px solid var(--line);border-radius:20px;padding:18px;margin-top:15px}
+label{font-weight:700}
+select,button{font:inherit;border-radius:12px;padding:11px 14px;border:2px solid #cbd6e5;background:white;color:var(--ink)}
+button{cursor:pointer;font-weight:700}
+button:focus,select:focus{outline:3px solid #ffd166}
+button.primary{background:var(--blue);border-color:var(--blue);color:white}
+button:disabled{opacity:.45;cursor:not-allowed}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.question{font-size:clamp(1.4rem,5vw,2rem);font-weight:800;text-align:center;margin:12px 0}
+.translation{text-align:center;font-size:1rem;color:#58677d;margin-bottom:14px}
+.sentence{background:var(--cream);border:2px dashed #e5bd57;border-radius:14px;padding:12px;text-align:center;font-size:1.25rem;font-weight:800;margin:12px 0}
+.answers{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-top:14px}
+.answer{min-height:65px;font-size:1.15rem;background:#f7faff}
+.answer.correct{background:var(--mint);border-color:#45a878}
+.answer.wrong{background:var(--pink);border-color:#dc7777}
+.feedback{min-height:2.5em;padding:8px;text-align:center;font-weight:800}
+.small{font-size:.92rem;color:#58677d}
+.progress{height:12px;background:#edf0f5;border-radius:20px;overflow:hidden;margin:8px 0}
+.bar{height:100%;width:0;background:#45a878;transition:width .2s}
+.badge{display:inline-block;border-radius:999px;background:#edf4ff;padding:5px 10px;font-size:.9rem;font-weight:700}
+footer{text-align:center;color:#64748b;padding:18px;font-size:.9rem}
+@media(max-width:520px){main{padding:10px}.panel{padding:13px}.row>*{flex:1}}
+</style>
+</head>
+<body>
+<main>
+<header>
+<h1>🏫 What day is it?</h1>
+<p class="sub">星期句型互動練習｜先選答案，再慢慢練習自己說</p>
+</header>
+
+<section class="panel">
+<div class="row">
+<label for="level">提示程度：</label>
+<select id="level">
+<option value="1">第 1 關：完整提示（句型＋2 個選項）</option>
+<option value="2">第 2 關：句型提示（It’s ___）</option>
+<option value="3">第 3 關：只看問句（3 個選項）</option>
+<option value="4">第 4 關：先想一想，再看選項</option>
+</select>
+<button id="readBtn" type="button">🔊 聽問句</button>
+<button id="resetBtn" type="button">重新開始</button>
+</div>
+<p class="small">教師可先固定使用已教的 2–3 個星期。若學生連續答錯 2 題，請把提示程度調回上一關。</p>
+</section>
+
+<section class="panel">
+<div class="row" style="justify-content:space-between">
+<span class="badge" id="round">第 1 題</span>
+<span class="badge" id="score">答對 0 題</span>
+</div>
+<div class="progress"><div class="bar" id="bar"></div></div>
+<div class="question">What day is it?</div>
+<div class="translation">今天星期幾？</div>
+<div class="sentence" id="sentence">It’s <span id="blank">_____</span>.</div>
+<div class="small" id="hint">先聽老師念，再選一個答案。</div>
+<div class="answers" id="answers"></div>
+<div class="feedback" id="feedback" aria-live="polite"></div>
+<div class="row" style="justify-content:center">
+<button id="speakAnswer" type="button">🔊 聽完整答句</button>
+<button id="nextBtn" class="primary" type="button" disabled>下一題 →</button>
+</div>
+</section>
+
+<section class="panel">
+<strong>🪜 我正在練習：</strong>
+<p id="goal">我先看句型，再從兩個答案中選出正確的星期。</p>
+<p class="small">教師觀察：□ 完整示範　□ 句型提示　□ 部分提示　□ 延遲提示　□ 獨立回答</p>
+</section>
+<footer>建議：先讓學生成功，再逐步減少提示。答錯時重新示範，不急著加難度。</footer>
+</main>
+<script>
+const days=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+const chinese={Monday:"星期一",Tuesday:"星期二",Wednesday:"星期三",Thursday:"星期四",Friday:"星期五",Saturday:"星期六",Sunday:"星期日"};
+let current="Monday", score=0, total=0, wrongStreak=0, answered=false;
+const $=id=>document.getElementById(id);
+function shuffle(arr){return arr.slice().sort(()=>Math.random()-.5)}
+function speak(text){
+ if(!("speechSynthesis" in window)){ $("feedback").textContent="這個瀏覽器沒有語音功能，請老師直接念一次。"; return; }
+ speechSynthesis.cancel();
+ const u=new SpeechSynthesisUtterance(text); u.lang="en-US"; u.rate=.78; speechSynthesis.speak(u);
+}
+function getChoices(){
+ const level=+$("level").value;
+ let pool=days.slice();
+ // First practice rounds use a smaller set to reduce load.
+ if(total<4) pool=["Monday","Tuesday","Wednesday"];
+ if(level===1){
+   let others=shuffle(pool.filter(d=>d!==current)).slice(0,1);
+   return shuffle([current,...others]);
+ }
+ if(level===2){
+   let others=shuffle(pool.filter(d=>d!==current)).slice(0,2);
+   return shuffle([current,...others]);
+ }
+ return shuffle([current,...shuffle(pool.filter(d=>d!==current)).slice(0,level===3?2:3)]);
+}
+function newQuestion(){
+ answered=false; $("nextBtn").disabled=true; $("feedback").textContent="";
+ current=days[Math.floor(Math.random()*days.length)];
+ // Keep early practice in the three easiest/teacher-selected starter days.
+ if(total<4) current=["Monday","Wednesday","Friday"][total%3];
+ const level=+$("level").value;
+ $("round").textContent=`第 ${total+1} 題`;
+ $("score").textContent=`答對 ${score} / ${total} 題`;
+ $("bar").style.width=(Math.min(total,10)/10*100)+"%";
+ $("sentence").style.display=level===1?"block":(level===2?"block":"none");
+ $("blank").textContent=level===1?"_____":"_____";
+ $("hint").textContent=level===1?"看著句型，從 2 個選項中選一個。":level===2?"句型還在：It’s ___. 想一想再選。":level===3?"先想答案，再從 3 個選項中選。":"先不看選項想一想；準備好後再按「顯示選項」。";
+ $("goal").textContent=level===1?"我先看句型，再從兩個答案中選出正確的星期。":level===2?"我看到 It’s ___，自己找出星期。":level===3?"我只看問句，自己選出星期。":"我先自己回想，再使用選項檢查。";
+ let choices=getChoices();
+ const box=$("answers"); box.innerHTML="";
+ if(level===4){
+   const reveal=document.createElement("button"); reveal.textContent="顯示選項"; reveal.className="primary";
+   reveal.onclick=()=>{reveal.remove(); renderChoices(choices);}; box.appendChild(reveal);
+ } else renderChoices(choices);
+}
+function renderChoices(choices){
+ const box=$("answers"); box.innerHTML="";
+ choices.forEach(day=>{
+  const b=document.createElement("button"); b.className="answer"; b.textContent=day+"　"+chinese[day];
+  b.onclick=()=>check(b,day); box.appendChild(b);
+ });
+}
+function check(btn,day){
+ if(answered)return; answered=true; total++;
+ const ok=day===current;
+ if(ok){score++;wrongStreak=0;btn.classList.add("correct");$("feedback").textContent="✅ 答對了！It’s "+current+"."; speak("It's "+current+".");}
+ else{wrongStreak++;btn.classList.add("wrong");$("feedback").textContent="再試一次也沒關係。正確答句是：It’s "+current+"."; 
+  [...$("answers").querySelectorAll("button")].forEach(b=>{if(b.textContent.startsWith(current))b.classList.add("correct");});
+  speak("It's "+current+".");
+ }
+ [...$("answers").querySelectorAll("button")].forEach(b=>b.disabled=true);
+ $("score").textContent=`答對 ${score} / ${total} 題`;
+ $("bar").style.width=(Math.min(total,10)/10*100)+"%";
+ $("round").textContent=`完成第 ${total} 題`;
+ $("nextBtn").disabled=false;
+ if(wrongStreak>=2){$("feedback").textContent+=" 建議先調回較多提示的關卡。";}
+}
+$("readBtn").onclick=()=>speak("What day is it?");
+$("speakAnswer").onclick=()=>speak("It's "+current+".");
+$("nextBtn").onclick=newQuestion;
+$("resetBtn").onclick=()=>{score=0;total=0;wrongStreak=0;newQuestion();};
+$("level").onchange=newQuestion;
+newQuestion();
+</script>
+</body>
+</html>
